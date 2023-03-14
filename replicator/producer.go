@@ -1,11 +1,14 @@
 package replicator
 
 import (
+	"context"
 	"fmt"
 	"log"
 	"os"
+	"strconv"
 	"time"
 
+	"github.com/Rbsn-joses/kafka-replicator/utils"
 	"github.com/confluentinc/confluent-kafka-go/v2/kafka"
 )
 
@@ -15,6 +18,9 @@ var kafkaProducerTlsEnabled = os.Getenv("KAFKA_PRODUCER_TLS_ENABLED")
 var kafkaProducerSslCertificateLocation = os.Getenv("KAFKA_PRODUCER_SSL_CERTIFICATE_LOCATION")
 var kafkaProducerSslPrivateKeyLocation = os.Getenv("KAFKA_PRODUCER_SSL_PRIVATE_KEY_LOCATION")
 var kafkaProducerSslPrivateKeyPassword = os.Getenv("KAFKA_PRODUCER_SSL_PRIVATE_KEY_LOCATION")
+var kafkaProducerReplicationFactor = utils.GetenvOrDefaultValue("KAFKA_PRODUCER_REPLICATOR_FACTOR", "3")
+var kafkaProducerPartitionNumber = utils.GetenvOrDefaultValue("KAFKA_PRODUCER_REPLICATOR_PARTITION_NUMBER", "3")
+var kafkaProducerTimeout = utils.GetenvOrDefaultValue("KAFKA_PRODUCER_TIMEOUT", "60s")
 
 func init() {
 
@@ -43,17 +49,74 @@ func init() {
 	}
 
 }
+func CreateTopic() {
+	var err error
+	var a *kafka.AdminClient
+
+	if kafkaProducerTlsEnabled == "true" {
+		a, err = kafka.NewAdminClient(&kafka.ConfigMap{
+			"bootstrap.servers":        kafkaProducerBoostrapServers,
+			"ssl.key.location":         kafkaProducerSslPrivateKeyLocation,
+			"ssl.certificate.location": kafkaProducerSslCertificateLocation,
+			"ssl.key.password":         kafkaProducerSslPrivateKeyPassword,
+			"security.protocol":        "SSL",
+		})
+		if err != nil {
+			fmt.Printf("Failed to create Admin client: %s\n", err)
+			os.Exit(1)
+		}
+	} else {
+		a, err = kafka.NewAdminClient(&kafka.ConfigMap{"bootstrap.servers": kafkaProducerBoostrapServers})
+		if err != nil {
+			fmt.Printf("Failed to create Admin client: %s\n", err)
+			os.Exit(1)
+		}
+	}
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	maxDur, err := time.ParseDuration(kafkaProducerTimeout)
+	if err != nil {
+		panic(err)
+	}
+	numParts, err := strconv.Atoi(kafkaProducerPartitionNumber)
+	if err != nil {
+		fmt.Printf("Invalid partition count: %s: %v\n", os.Args[3], err)
+		os.Exit(1)
+	}
+	replicationFactor, err := strconv.Atoi(kafkaProducerReplicationFactor)
+	if err != nil {
+		fmt.Printf("Invalid replication factor: %s: %v\n", os.Args[4], err)
+		os.Exit(1)
+	}
+
+	results, err := a.CreateTopics(
+		ctx,
+		// Multiple topics can be created simultaneously
+		// by providing more TopicSpecification structs here.
+		[]kafka.TopicSpecification{{
+			Topic:             kafkaProducerTopic,
+			NumPartitions:     numParts,
+			ReplicationFactor: replicationFactor,
+		}},
+		// Admin options
+		kafka.SetAdminOperationTimeout(maxDur))
+	if err != nil {
+		fmt.Printf("Failed to create topic: %v\n", err)
+		os.Exit(1)
+	}
+
+	// Print results
+	for _, result := range results {
+		fmt.Printf("%s\n", result)
+	}
+
+	a.Close()
+}
 func SendTopicMessages(value []byte) {
 	var err error
 	var p *kafka.Producer
 	if kafkaProducerTlsEnabled == "true" {
-		p, err = kafka.NewProducer(&kafka.ConfigMap{"bootstrap.servers": kafkaProducerBoostrapServers})
-
-		if err != nil {
-			fmt.Printf("Failed to create producer: %s\n", err)
-			os.Exit(1)
-		}
-	} else {
 		p, err = kafka.NewProducer(&kafka.ConfigMap{
 			"bootstrap.servers":        kafkaProducerBoostrapServers,
 			"ssl.key.location":         kafkaProducerSslPrivateKeyLocation,
@@ -66,6 +129,14 @@ func SendTopicMessages(value []byte) {
 			fmt.Printf("Failed to create producer: %s\n", err)
 			os.Exit(1)
 		}
+	} else {
+		p, err = kafka.NewProducer(&kafka.ConfigMap{"bootstrap.servers": kafkaProducerBoostrapServers})
+
+		if err != nil {
+			fmt.Printf("Failed to create producer: %s\n", err)
+			os.Exit(1)
+		}
+
 	}
 
 	go func() {
@@ -96,6 +167,11 @@ func SendTopicMessages(value []byte) {
 			close(deliveryChan)
 		}
 	}()
+
+	if err != nil {
+		fmt.Printf("Failed to create topic: %v\n", err)
+		os.Exit(1)
+	}
 	err = p.Produce(&kafka.Message{
 		TopicPartition: kafka.TopicPartition{Topic: &kafkaProducerTopic, Partition: kafka.PartitionAny},
 		Value:          []byte(value),
