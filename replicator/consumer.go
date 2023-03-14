@@ -50,9 +50,6 @@ var kafkaConsumerSslPrivateKeyPassword = os.Getenv("KAFKA_CONSUMER_SSL_PRIVATE_K
 var replicationEnabled = os.Getenv("KAFKA_REPLICATION_ENABLED")
 var kafkaConsumerGroupID = os.Getenv("KAFKA_CONSUMER_GROUP_ID")
 
-func init() {
-
-}
 func GetTopicMessages() {
 	var err error
 	var c *kafka.Consumer
@@ -93,6 +90,7 @@ func GetTopicMessages() {
 	run := true
 	sigchan := make(chan os.Signal, 1)
 	signal.Notify(sigchan, syscall.SIGINT, syscall.SIGTERM)
+	CreateTopic()
 	for run {
 		select {
 		case sig := <-sigchan:
@@ -111,6 +109,8 @@ func GetTopicMessages() {
 				}
 				if replicationEnabled == "true" {
 					SendTopicMessages(e.Value)
+				} else {
+					fmt.Printf("Mensagem consumida %s \n", string(e.Value))
 				}
 
 			case kafka.Error:
