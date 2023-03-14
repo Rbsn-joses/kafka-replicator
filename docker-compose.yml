@@ -1,0 +1,14 @@
+
+version: '3.7'
+services:
+  kafka-replicator:
+    build: .
+    container_name: kafka-replicator
+    restart: on-failure
+    environment:
+      KAFKA_CONSUMER_BOOSTRAP_SERVERS: localhost:9092
+      KAFKA_CONSUMER_TOPIC: topico-replicado
+      KAFKA_CONSUMER_GROUP_ID: teste
+      KAFKA_PRODUCER_BOOSTRAP_SERVERS: localhost:9093
+      KAFKA_PRODUCER_TOPIC: teste-replicacao
+      KAFKA_REPLICATION_ENABLED: "true"
