@@ -42,3 +42,4 @@
 | KAFKA_CONSUMER_BOOSTRAP_SERVERS | Brokers do kafka que mandará as mensagens para kafka-replicator |
 | KAFKA_CONSUMER_TOPIC | Nome do tópico alvo que será replicado |
 | KAFKA_CONSUMER_GROUP_ID | GroupID do consumer do tópico |
+
