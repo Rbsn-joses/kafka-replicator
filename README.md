@@ -12,16 +12,18 @@ Caso não precise de conexão ssl, apenas incluir as envs para o producer, ou se
 KAFKA_PRODUCER_BOOSTRAP_SERVERS
 KAFKA_PRODUCER_TOPIC
 
+Número de partições,réplicas que o tópico usará
+KAFKA_PRODUCER_REPLICATOR_PARTITION_NUMBER=3
+KAFKA_PRODUCER_REPLICATOR_FACTOR=3
+KAFKA_PRODUCER_TIMEOUT=60s
+
 Caso essa env não tenha valor true, as mensagens não serão mandadas pro kafka replica, apenas será mostrado nos logs do container.
 KAFKA_REPLICATION_ENABLED=true
 
 Variáveis para o que o kafka-replicator leia o tópico e puxe as mensagens do kafka original
 KAFKA_CONSUMER_TLS_ENABLED
-
 KAFKA_CONSUMER_SSL_CERTIFICATE_LOCATION
-
 KAFKA_CONSUMER_SSL_PRIVATE_KEY_LOCATION
-
 KAFKA_CONSUMER_SSL_PRIVATE_KEY_PASSWORD
 
 Caso não precise de conexão ssl, apenas incluir as envs para o kafka-replicator
